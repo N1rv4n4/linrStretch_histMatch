@@ -36,23 +36,23 @@ def arrayToHist(grayArray, nums):
 
 
 # 计算累计直方图计算出新的均衡化的图片，nums为灰度数,256
-# def equalization(grayArray, h_s, nums):
-#     # 计算累计直方图
-#     tmp = 0.0
-#     h_acc = h_s.copy()
-#     for i in range(256):
-#         tmp += h_s[i]
-#         h_acc[i] = tmp
-#
-#     if(len(grayArray.shape) != 2):
-#         print("length error")
-#         return None
-#     w,h = grayArray.shape
-#     des = np.zeros((w,h),dtype = np.uint8)
-#     for i in range(w):
-#         for j in range(h):
-#             des[i][j] = int((nums - 1)* h_acc[grayArray[i][j] ] +0.5)
-#     return des
+def equalization(grayArray, h_s, nums):
+    # 计算累计直方图
+    tmp = 0.0
+    h_acc = h_s.copy()
+    for i in range(256):
+        tmp += h_s[i]
+        h_acc[i] = tmp
+
+    if(len(grayArray.shape) != 2):
+        print("length error")
+        return None
+    w,h = grayArray.shape
+    des = np.zeros((w,h),dtype = np.uint8)
+    for i in range(w):
+        for j in range(h):
+            des[i][j] = int((nums - 1)* h_acc[grayArray[i][j] ] +0.5)
+    return des
 
 
 # 传入的直方图要求是个字典，每个灰度对应着概率
@@ -64,11 +64,11 @@ def drawHist(hist, name):
     axis_params.append(0)
     axis_params.append(x_size)
 
-    # plt.figure()
+    plt.figure()
     if name != None:
         plt.title(name)
     plt.bar(tuple(keys), tuple(values))  # 绘制直方图
-    # plt.show()
+    plt.show()
 
 
 # 直方图匹配函数，接受原始图像和目标灰度直方图
@@ -78,27 +78,38 @@ def histMatch(grayArray, h_d):
     h_acc = h_d.copy()
     for i in range(256):
         tmp += h_d[i]
-        h_acc[i] = tmp  # h_acc目标积累直方图
+        h_acc[i] = tmp  # h_acc目标积累直方图  相当于G(zq)/(L-1)
 
     h1 = arrayToHist(grayArray, 256)  # h1 原图直方图
     tmp = 0.0
     h1_acc = h1.copy()
     for i in range(256):
         tmp += h1[i]
-        h1_acc[i] = tmp  # h1_acc原图积累直方图
+        h1_acc[i] = tmp  # h1_acc原图积累直方图, 相当于sk*MN/(L-1)
+
+    # 测试
+    # print("s:", max(h1_acc), min(h1_acc))
+    # print("G:", max(h_acc), min(h_acc))
+
+    # 直方图均衡化
+    # grayArray_hist = arrayToHist(grayArray, 256)
+    # grayArray_e = equalization(grayArray, grayArray_hist, 256)
+    # grayArray_ehist = arrayToHist(grayArray_e, 256)
+    # drawHist(grayArray_ehist, 'ehist')
+
     # 计算映射
     M = np.zeros(256)  # 1*256数组
     for i  in range(256):
         idx = 0
         minv = 1
         for j in h_acc:
-            if (np.fabs(h_acc[j] - h1_acc[i]) < minv):  # 对于原图积累直方图的每个灰度，将其与目标积累直方图的各个灰度比较
-                minv = np.fabs(h_acc[j] - h1_acc[i])
+            if (np.fabs(h_acc[j] - h1_acc[i]) < minv):  # 对于原图积累直方图的每个灰度，将其与目标积累直方图的各个灰度比较，将s映射到最接近的G，并储存G对应的z值
+                minv = np.fabs(h_acc[j] - h1_acc[i])  # 更新minv的值，保证s能匹配到最接近的G
                 idx = int(j)
-        M[i] = idx
+        M[i] = idx  # 储存s到z的映射关系
     # print(M)
     # print(grayArray)
-    des = M[grayArray]
+    des = M[grayArray]  # grayArray中所有 a 值，替换为 M[a] 的值
     # print(des)
     return des
 
@@ -130,9 +141,9 @@ def TwoPercentLinear(image, max_out=255, min_out=0, max_percent=98, min_percent=
 def PercentCut(image, max_percent=98, min_percent=0):
     def gray_process(gray):
         high_value = np.percentile(gray, max_percent)  # 取得98%直方图处对应灰度
-        print("max:", np.max(gray), "high_value:", high_value)
+        # print("max:", np.max(gray), "high_value:", high_value)
         low_value = np.percentile(gray, min_percent)  # 同理
-        print("min", np.min(gray), "low_value:", low_value)
+        # print("min", np.min(gray), "low_value:", low_value)
         # np.clip 将灰度值小于low_value的都置为low_value，灰度值大于high_value的都置为high_value
         truncated_gray = np.clip(gray, a_min=low_value, a_max=high_value)
         return truncated_gray
@@ -142,9 +153,9 @@ def PercentCut(image, max_percent=98, min_percent=0):
 
 def BestPercent(image):
     maxnum = np.sum(image==255)
-    print("maxnum:", maxnum)
+    # print("maxnum:", maxnum)
     result = 100-math.ceil(100*maxnum/np.size(image))
-    print("bestpercent:", result)
+    # print("bestpercent:", result)
     return result
 
 
@@ -158,7 +169,7 @@ if __name__ == '__main__':
         b1, g1, r1 = cv.split(im_s)
         b2, g2, r2 = cv.split(im_match)
 
-        # 先匹配
+        # 直方图匹配
         b1m0 = np.uint8(sigChnlHistMatch(b1, b2))
         g1m0 = np.uint8(sigChnlHistMatch(g1, g2))
         r1m0 = np.uint8(sigChnlHistMatch(r1, r2))
@@ -169,10 +180,10 @@ if __name__ == '__main__':
         rp = BestPercent(r1m0)
         bestpct = min(bp, gp, rp)
 
-        # 再裁剪
-        b1m = PercentCut(b1m0, max_percent=bp)
-        g1m = PercentCut(g1m0, max_percent=gp)
-        r1m = PercentCut(r1m0, max_percent=rp)
+        # 裁剪
+        b1m = PercentCut(b1m0, max_percent=bestpct)
+        g1m = PercentCut(g1m0, max_percent=bestpct)
+        r1m = PercentCut(r1m0, max_percent=bestpct)
 
         # # 求直方图
         # b1h = arrayToHist(b1, 256)  # 原图
@@ -188,52 +199,54 @@ if __name__ == '__main__':
         # r1m0h = arrayToHist(r1m0, 256)
 
         result = cv.merge((b1m, g1m, r1m))
+        # result = cv.merge((b1m0, g1m0, r1m0))
         # cv.imwrite(r"D:\database\LEVIR-CD\train\AMC\train_{}.png".format(str(i)), result)
         # cv.imwrite(r".\g1m0.png", g1m0)
         # cv.imwrite(r".\r1m0.png", r1m0)
+        cv.imshow('1', result)
+        cv.waitKey(0)
         print('No.{} histMatch Finished'.format(str(i)), bestpct)
 
-        # plt.figure()
-        #
-        # plt.subplot(3, 3, 1)
-        # plt.title('b1')
-        # plt.imshow(b1, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 2)
-        # plt.title('g1')
-        # plt.imshow(g1, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 3)
-        # plt.title('r1')
-        # plt.imshow(r1, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 4)
-        # plt.title('b1m0')
-        # plt.imshow(b1m0, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 5)
-        # plt.title('g1m0')
-        # plt.imshow(g1m0, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 6)
-        # plt.title('r1m0')
-        # plt.imshow(r1m0, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 7)
-        # plt.title('b1m')
-        # plt.imshow(b1m, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 8)
-        # plt.title('g1m')
-        # plt.imshow(g1m, cmap=plt.cm.gray)
-        #
-        # plt.subplot(3, 3, 9)
-        # plt.title('r1m')
-        # plt.imshow(r1m, cmap=plt.cm.gray)
-        #
-        # plt.tight_layout()
-        # plt.show()
+        plt.figure()
+
+        plt.subplot(3, 3, 1)
+        plt.title('b1')
+        plt.imshow(b1, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 2)
+        plt.title('g1')
+        plt.imshow(g1, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 3)
+        plt.title('r1')
+        plt.imshow(r1, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 4)
+        plt.title('b1m0')
+        plt.imshow(b1m0, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 5)
+        plt.title('g1m0')
+        plt.imshow(g1m0, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 6)
+        plt.title('r1m0')
+        plt.imshow(r1m0, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 7)
+        plt.title('b1m')
+        plt.imshow(b1m, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 8)
+        plt.title('g1m')
+        plt.imshow(g1m, cmap=plt.cm.gray)
+
+        plt.subplot(3, 3, 9)
+        plt.title('r1m')
+        plt.imshow(r1m, cmap=plt.cm.gray)
+
+        plt.tight_layout()
+        plt.show()
 
         # plt.savefig('./results.png')
-        # cv.imshow('1', result)
-        # cv.waitKey(0)
+
