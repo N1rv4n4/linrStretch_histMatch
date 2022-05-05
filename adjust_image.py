@@ -66,6 +66,7 @@ from PIL import Image
 from matplotlib import pyplot as plt
 import pylab
 import os
+# 调整图片亮度对比度
 
 # VisualEffect
 class VisualEffect:

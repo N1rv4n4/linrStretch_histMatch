@@ -5,6 +5,7 @@ Date: 2022.04.26
 """
 import os
 import shutil
+# 根据数据集中图片名称列表，复制空的XML文件并对应命名
 
 def getOriName(nameWithForm):
     # 去掉文件名中的点及后缀

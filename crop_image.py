@@ -12,8 +12,9 @@ import os
 from PIL import Image
 import sys
 import csv
-from adjust import checkAndMakeDir
+from adjust_image import checkAndMakeDir
 
+# 裁剪图片
 
 def fill_image(image):
     # width, height = image.size
